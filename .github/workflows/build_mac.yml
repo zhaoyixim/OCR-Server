@@ -1,0 +1,33 @@
+name: Build Mac App
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest  # 使用 GitHub 的 Mac 环境
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9' # ddddocr 在 3.9 兼容性较好
+
+    - name: Install Dependencies
+      run: |
+        pip install -r requirements.txt
+
+    - name: Build with PyInstaller
+      # 这里使用了 --collect-all 来包含 ddddocr 的模型文件
+      run: |
+        pyinstaller --noconfirm --onefile --console --name "OCR_Server" --collect-all "ddddocr" app.py
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: Mac-OCR-Server
+        path: dist/OCR_Server
