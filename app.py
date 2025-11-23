@@ -50,6 +50,9 @@ def solve_captcha():
     try:
         data = request.json
         image_base64 = data.get('image', '')
+        checkcode = data.get('hashcode', '')
+        if not checkcode or checkcode != "melonfromlocalmacandwin":
+            return "ocr error"
 
         if "," in image_base64:
             image_base64 = image_base64.split(",", 1)[1]

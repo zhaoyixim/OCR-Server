@@ -1,4 +1,4 @@
-name: Build Mac App
+name: Build Mac App (Universal Support)
 
 on:
   push:
@@ -7,7 +7,25 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest  # 使用 GitHub 的 Mac 环境
+    name: Build for ${{ matrix.name }}
+    # 使用矩阵策略，同时运行两个任务
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 任务 1: Intel 环境 (兼容旧 Mac 和新 Mac 通过 Rosetta)
+          - name: Intel
+            os: macos-13
+            architecture: x64
+            suffix: _Intel
+
+          # 任务 2: Apple Silicon 环境 (M1/M2/M3 原生速度更快)
+          - name: AppleSilicon
+            os: macos-latest
+            architecture: arm64
+            suffix: _Silicon
+
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v3
@@ -15,19 +33,22 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.10' # ddddocr 在 3.9 兼容性较好
+        python-version: '3.10'
+        # 根据矩阵动态选择架构
+        architecture: ${{ matrix.architecture }}
 
     - name: Install Dependencies
       run: |
         pip install -r requirements.txt
 
     - name: Build with PyInstaller
-      # 这里使用了 --collect-all 来包含 ddddocr 的模型文件
+      # 文件名加上后缀，区分版本
       run: |
-        pyinstaller --noconfirm --onefile --console --name "OCR_Server" --collect-all "ddddocr" app.py
+        pyinstaller --noconfirm --onefile --console --name "OCR_Server${{ matrix.suffix }}" --collect-all "ddddocr" app.py
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Mac-OCR-Server
-        path: dist/OCR_Server
+        # 上传时区分 Artifact 名称
+        name: OCR-Server-${{ matrix.name }}
+        path: dist/OCR_Server${{ matrix.suffix }}
