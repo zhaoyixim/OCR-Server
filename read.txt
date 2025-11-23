@@ -1,0 +1,7 @@
+带控制台窗口 (推荐调试用)
+pyinstaller --noconfirm --onefile --console --name "OCR_Server_Debug" --collect-all "ddddocr" app.py
+不带控制台 (静默后台运行)
+pyinstaller --noconfirm --onefile --noconsole --name "OCR_Server_Silent" --collect-all "ddddocr" app.py
+
+xattr -d com.apple.quarantine /path/to/OCR_Server
+chmod +x /path/to/OCR_Server

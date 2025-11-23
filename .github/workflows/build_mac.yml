@@ -1,4 +1,4 @@
-name: Build Mac App (Universal Support)
+name: Build Mac DMG (Intel & Silicon)
 
 on:
   push:
@@ -7,19 +7,19 @@ on:
 
 jobs:
   build:
-    name: Build for ${{ matrix.name }}
-    # 使用矩阵策略，同时运行两个任务
+    name: Build DMG for ${{ matrix.name }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          # 任务 1: Intel 环境 (兼容旧 Mac 和新 Mac 通过 Rosetta)
+          # Intel Mac 版本
           - name: Intel
             os: macos-13
             architecture: x64
             suffix: _Intel
-
-          # 任务 2: Apple Silicon 环境 (M1/M2/M3 原生速度更快)
+          # M1/M2/M3 版本
+            # 注意：create-dmg 在最新的 macos-14+ (ARM) 上有时会有 bug，
+            # 如果遇到问题，这里也可以改回 macos-13，通过 Rosetta 打包 ARM 代码
           - name: AppleSilicon
             os: macos-latest
             architecture: arm64
@@ -34,21 +34,43 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
-        # 根据矩阵动态选择架构
         architecture: ${{ matrix.architecture }}
 
     - name: Install Dependencies
       run: |
         pip install -r requirements.txt
+        # 安装制作 DMG 的工具
+        brew install create-dmg
 
-    - name: Build with PyInstaller
-      # 文件名加上后缀，区分版本
+    - name: Build Executable (PyInstaller)
+      # 这里我们打包成单文件，作为 DMG 的内容
       run: |
         pyinstaller --noconfirm --onefile --console --name "OCR_Server${{ matrix.suffix }}" --collect-all "ddddocr" app.py
+
+    - name: Create DMG Installer
+      run: |
+        # 1. 创建一个临时文件夹，把生成的文件放进去
+        mkdir -p build_source
+        cp dist/OCR_Server${{ matrix.suffix }} build_source/
+        
+        # 2. (可选) 你可以放一个 ReadMe 说明书进去，告诉用户怎么解决权限问题
+        echo "如果打不开，请打开终端输入: xattr -d com.apple.quarantine 并将应用拖入终端回车。" > build_source/使用说明.txt
+
+        # 3. 使用 create-dmg 制作镜像
+        # 这会自动生成一个带背景（默认灰色）和拖拽快捷方式的 DMG
+        create-dmg \
+          --volname "OCR Server Installer" \
+          --window-pos 200 120 \
+          --window-size 600 400 \
+          --icon-size 100 \
+          --icon "OCR_Server${{ matrix.suffix }}" 200 190 \
+          --hide-extension "OCR_Server${{ matrix.suffix }}" \
+          --app-drop-link 400 185 \
+          "OCR-Server-${{ matrix.name }}.dmg" \
+          "build_source/"
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        # 上传时区分 Artifact 名称
-        name: OCR-Server-${{ matrix.name }}
-        path: dist/OCR_Server${{ matrix.suffix }}
+        name: OCR-Server-DMG-${{ matrix.name }}
+        path: OCR-Server-${{ matrix.name }}.dmg
